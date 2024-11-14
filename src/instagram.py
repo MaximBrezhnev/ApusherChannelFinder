@@ -1,56 +1,55 @@
 import os
 
-import instaloader
+import instagrapi
 
 
 def find_instagram_accounts(
     link: str,
     min_number_of_subscribers: int,
     number_of_posts: int,
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, int]]:
 
     received_data: set[tuple[str, str]] = set()
-    client: instaloader.Instaloader = _get_client()
-    account = instaloader.Profile.from_username(
-        client.context, username=_extract_username_from_link(link=link)
+    client: instagrapi.Client = _get_client()
+    account = client.user_info_by_username(username=_extract_username_from_link(link=link))
+
+    posts, _ = client.user_medias_paginated(
+        user_id=account.pk,
+        amount=number_of_posts
     )
-    count = 0
-
-    print("Получение постов аккаунта...")
-    for post in account.get_posts():
-        count += 1
-        if count > number_of_posts:
-            break
-
-        for comment in post.get_comments():
-            received_account_link = f"https://www.instagram.com/{comment.owner.username}/"
-            number_of_subscribers: int = _get_followers_count(
-                link=received_account_link, client=client
+    for post in posts:
+        comments = client.media_comments(media_id=post.pk, amount=post.comment_count)
+        for comment in comments:
+            received_account_link = f"https://www.instagram.com/{comment.user.username}/"
+            received_account_followers_count = (
+                client.user_info_by_username(username=comment.user.username).follower_count
             )
-            if number_of_subscribers >= min_number_of_subscribers:
+
+            if received_account_followers_count >= min_number_of_subscribers:
                 received_data.add(
-                    (received_account_link, number_of_subscribers)
+                    (received_account_link, received_account_followers_count)
                 )
 
     return list(received_data)
 
 
-def _get_client() -> instaloader.Instaloader:
-    client = instaloader.Instaloader()
-    client.login(user="buugol", passwd="KZCKmj8vXpMHFnmQ")
+def _get_client() -> instagrapi.Client:
+    client = instagrapi.Client()
+    # client.set_proxy("http://bxUkguVJ:CbV6b2uF@45.137.53.163:63676")
 
-    # proxy_url = "http://bxUkguVJ:CbV6b2uF@45.137.53.163:63676"
-    # os.environ["https_proxy"] = proxy_url
+    current_dir_path = os.path.dirname(os.path.abspath(__file__))
+    session_file_path = os.path.join(current_dir_path, "instagrapi.session.json")
+
+    if os.path.exists(session_file_path):
+        client.load_settings(session_file_path)
+    else:
+        username = "trieyzyoung"  # временный вариант
+        password = "KBvFVoPOcHu4f"  # временный вариант
+        client.login(username, password)
+        client.dump_settings(session_file_path)
 
     return client
 
 
 def _extract_username_from_link(link: str) -> str:
     return link.rstrip("/").split("/")[-1]
-
-
-def _get_followers_count(link: str, client: instaloader.Instaloader) -> int:
-    account = instaloader.Profile.from_username(
-        client.context, username=_extract_username_from_link(link=link)
-    )
-    return account.followers
