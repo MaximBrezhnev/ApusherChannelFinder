@@ -1,5 +1,6 @@
 import csv
 import os
+import time
 
 from src.instagram import find_instagram_accounts
 from src.telegram import find_telegram_accounts
@@ -59,6 +60,7 @@ async def find_accounts(
                 continue
         else:
             print(f"{link}: некорректная ссылка на аккаунт")
+        time.sleep(30)
 
     create_final_file(links=all_received_data)
 
