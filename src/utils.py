@@ -11,7 +11,9 @@ async def find_accounts(
     filepath: str,
     min_number_of_subscribers: int,
     number_of_posts: int,
-    telegram_credentials: str | None
+    number_of_comments: int,
+    telegram_credentials: str | None,
+    instagram_credentials: str | None,
 ) -> None:
     with open(filepath, "r") as file:
         links: list[str] = [line.strip() for line in file]
@@ -21,12 +23,18 @@ async def find_accounts(
         console_message = f"Сбор данных для {link}..."
 
         if "instagram.com" in link:
-            print(console_message)
-            received_data: list[tuple[str, int]] = find_instagram_accounts(
-                link=link,
-                min_number_of_subscribers=min_number_of_subscribers,
-                number_of_posts=number_of_posts,
-            )
+            if instagram_credentials is not None:
+                try:
+                    print(console_message)
+                    received_data: list[tuple[str, int]] = find_instagram_accounts(
+                        link=link,
+                        min_number_of_subscribers=min_number_of_subscribers,
+                        number_of_posts=number_of_posts,
+                        username=instagram_credentials.split()[0],
+                        password=instagram_credentials.split()[1],
+                    )
+                except:
+                    continue
             all_received_data.extend(received_data)
         elif "youtube.com" in link or "youtu.be" in link:
             print(console_message)
@@ -49,18 +57,17 @@ async def find_accounts(
                 received_data: list[tuple[str, int]] = await find_telegram_accounts(
                     link=link,
                     min_number_of_subscribers=min_number_of_subscribers,
-                    number_of_posts=number_of_posts,
+                    number_of_comments=number_of_comments,
                     api_id=api_id,
                     api_hash=api_hash,
                 )
                 all_received_data.extend(received_data)
             except Exception as exc:
-                raise exc
                 print(f"Произошла ошибка при сборе данных для аккаунта {link}: {exc}")
                 continue
         else:
             print(f"{link}: некорректная ссылка на аккаунт")
-        time.sleep(30)
+        time.sleep(15)
 
     create_final_file(links=all_received_data)
 

@@ -37,12 +37,12 @@ def find_youtube_accounts(
 
     # Получаем комментарии и информацию о каналах авторов
     received_data: set[tuple[str, int]] = set()
-    print(video_ids)  # временный код
+
     for video_id in video_ids:
         comments_request = youtube.commentThreads().list(
             part="snippet",
             videoId=video_id,
-            maxResults=2,  # временно
+            maxResults=100,
             order="relevance",
         )
         comments_response = comments_request.execute()

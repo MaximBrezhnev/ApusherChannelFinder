@@ -11,7 +11,7 @@ from pyrogram.types import User
 async def find_telegram_accounts(
     link: str,
     min_number_of_subscribers: int,
-    number_of_posts: int,
+    number_of_comments: int,
     api_id: str,
     api_hash: str
 ) -> list[tuple[str, int]]:
@@ -22,6 +22,7 @@ async def find_telegram_accounts(
         "channel_finder_tg_client",
         api_id=api_id,
         api_hash=api_hash,
+        session_string=f"BAE5jWcAuF3ipqWwI1RLZ2b5hqN2c4M6hgnhWYsKxo-V3tWIlWyRt_58mYBW9SsRKvYa-2US1tCxJofdYATWLOp7LSZlIvlkauzSVqDjF4kM7OUsy2KjFu_InAskkia6-2S8sGftYnMV0Q-LDQf2VsjcTgmtOxWNVXzYcFBq0ZXE9pQW1xvgVQZZH9JyZVAToDUnSBIIoBeZSxGIT-3akSfJlGZaVk5t4tHOIKWZnR87Y2Be9UjrXhn3vfk6ohWoy0tL9Zwzq-_D9TZtiNoUQ2-JgTYHuH9P_BsN10ygu9OAHRuxaLzjvfFPvr2i_PRw4UJazRdCmYuUgSRiJFlb_qDgHiY0dgAAAAHI0NjUAA"
     ) as client):
         channel_id = await get_channel_id_from_link(
             client=client, channel_link=link
@@ -31,79 +32,68 @@ async def find_telegram_accounts(
         if chat.linked_chat:
             discussion_chat_id =  chat.linked_chat.id
         else:
-            discussion_chat_id = channel_id
+            discussion_chat_id = None
+
+        User._parse = custom_parse
 
         async for message in client.get_chat_history(
-            chat_id=channel_id, limit=number_of_posts
+            chat_id=discussion_chat_id, limit=number_of_comments
         ):
-            print(message.date, discussion_chat_id)
-            try:
-                # User._parse = custom_parse
-                async for comment in client.get_discussion_replies(
-                    message_id=message.id, chat_id=discussion_chat_id,
-                ):
-                    continue  # временный код
-                    print(f"Обработка поста за {message.date}")
-                    try:
-                        user = comment.from_user
+            if message.reply_to_message_id:
+                try:
+                    user = message.from_user
 
-                        if user:
-                            if user[0].id not in checked_user_ids:
-                                time.sleep(0.7)
-                                full_user_object = await client.invoke(
-                                    functions.users.GetFullUser(
-                                        id=types.InputUser(
-                                            user_id=user[0].id,
-                                            access_hash=user[1]
-                                        )
+                    if user:
+                        if user[0].id not in checked_user_ids:
+                            time.sleep(0.7)
+                            full_user_object = await client.invoke(
+                                functions.users.GetFullUser(
+                                    id=types.InputUser(
+                                        user_id=user[0].id,
+                                        access_hash=user[1]
                                     )
                                 )
-                                checked_user_ids.add(user[0].id)
-                                user_bio = full_user_object.full_user.about
+                            )
+                            checked_user_ids.add(user[0].id)
+                            user_bio = full_user_object.full_user.about
 
-                                if user_bio:
-                                    retrieved_channel_link = await get_channel_link_from_bio(bio=user_bio)
+                            if user_bio:
+                                retrieved_channel_link = await get_channel_link_from_bio(bio=user_bio)
 
-                                    if retrieved_channel_link:
-                                        retrieved_channel_id = await get_channel_id_from_link(
-                                            client=client, channel_link=retrieved_channel_link
+                                if retrieved_channel_link:
+                                    retrieved_channel_id = await get_channel_id_from_link(
+                                        client=client, channel_link=retrieved_channel_link
+                                    )
+                                    retrieved_channel = await client.get_chat(chat_id=retrieved_channel_id)
+
+                                    if retrieved_channel.type == ChatType.CHANNEL:
+                                        if retrieved_channel.id != channel_id:
+                                            subscribers = retrieved_channel.members_count
+
+                                            if subscribers >= min_number_of_subscribers:
+                                                print(retrieved_channel_link, subscribers)
+                                                received_data.add(
+                                                    (retrieved_channel_link, subscribers)
+                                                )
+                        elif chat := message.sender_chat:
+                            if chat.id != channel_id:
+                                if chat.type == ChatType.CHANNEL:
+                                    retrieved_channel = await client.get_chat(chat_id=chat.id)
+                                    subscribers = retrieved_channel.members_count
+
+                                    if subscribers >= min_number_of_subscribers:
+                                        received_data.add(
+                                            (f"https://t.me/{retrieved_channel.username}", subscribers)
                                         )
-                                        retrieved_channel = await client.get_chat(chat_id=retrieved_channel_id)
 
-                                        if retrieved_channel.type == ChatType.CHANNEL:
-                                            if retrieved_channel.id != channel_id:
-                                                subscribers = retrieved_channel.members_count
+                except pyrogram.errors.exceptions.flood_420.FloodWait:
+                    print("Таймаут для обхода блокировки...")
+                    time.sleep(60)
+                    continue
 
-                                                if subscribers >= min_number_of_subscribers:
-                                                    print(retrieved_channel_link, subscribers)
-                                                    received_data.add(
-                                                        (retrieved_channel_link, subscribers)
-                                                    )
-                            elif chat := comment.sender_chat:
-                                if chat.id != channel_id:
-                                    if chat.type == ChatType.CHANNEL:
-                                        retrieved_channel = await client.get_chat(chat_id=chat.id)
-                                        subscribers = retrieved_channel.members_count
+                except Exception:
+                    continue
 
-                                        if subscribers >= min_number_of_subscribers:
-                                            received_data.add(
-                                                (f"https://t.me/{retrieved_channel.username}", subscribers)
-                                            )
-
-                    except pyrogram.errors.exceptions.flood_420.FloodWait:
-                        print("Таймаут для обхода блокировки...")
-                        time.sleep(60)
-                        continue
-
-                    except Exception as exc:
-                        print(f"Ошибка для комментария: {exc}")
-                        print(comment)
-                        continue
-
-            except Exception as exc:
-                print(f"Ошибка для сообщения: {exc}")
-                print("not ok", message.date)
-                continue
     return list(received_data)
 
 
