@@ -12,10 +12,11 @@ async def find_accounts(
     min_number_of_subscribers: int,
     number_of_posts: int,
     number_of_comments: int,
-    telegram_credentials: str | None,
+    telegram_session_string: str | None,
     instagram_credentials: str | None,
+    youtube_developer_key: str | None
 ) -> None:
-    with open(filepath, "r") as file:
+    with open(filepath, "r", encoding="utf-8") as file:
         links: list[str] = [line.strip() for line in file]
 
     all_received_data: list[tuple[str, int]] = []
@@ -36,37 +37,37 @@ async def find_accounts(
                 except:
                     continue
             all_received_data.extend(received_data)
+
         elif "youtube.com" in link or "youtu.be" in link:
-            print(console_message)
-            received_data: list[tuple[str, int]] = find_youtube_accounts(
-                link=link,
-                min_number_of_subscribers=min_number_of_subscribers,
-                number_of_posts=number_of_posts,
-            )
-            all_received_data.extend(received_data)
-        elif "t.me" in link or "telegram.me" in link:
             try:
-                api_id, api_hash = telegram_credentials.split()
-            except:
-                print("Введены некорректные данные для парсинга в Телеграм. Парсинг не может быть произведен")
-                continue
-
-            print(console_message)
-
-            try:
-                received_data: list[tuple[str, int]] = await find_telegram_accounts(
+                print(console_message)
+                received_data: list[tuple[str, int]] = find_youtube_accounts(
                     link=link,
                     min_number_of_subscribers=min_number_of_subscribers,
-                    number_of_comments=number_of_comments,
-                    api_id=api_id,
-                    api_hash=api_hash,
+                    number_of_posts=number_of_posts,
+                    youtube_developer_key=youtube_developer_key,
                 )
                 all_received_data.extend(received_data)
             except Exception as exc:
                 print(f"Произошла ошибка при сборе данных для аккаунта {link}: {exc}")
                 continue
+
+        elif "t.me" in link or "telegram.me" in link:
+            try:
+                received_data: list[tuple[str, int]] = await find_telegram_accounts(
+                    link=link,
+                    min_number_of_subscribers=min_number_of_subscribers,
+                    number_of_comments=number_of_comments,
+                    telegram_session_string=telegram_session_string
+                )
+                all_received_data.extend(received_data)
+            except Exception as exc:
+                print(f"Произошла ошибка при сборе данных для аккаунта {link}: {exc}")
+                continue
+
         else:
             print(f"{link}: некорректная ссылка на аккаунт")
+
         time.sleep(15)
 
     create_final_file(links=all_received_data)

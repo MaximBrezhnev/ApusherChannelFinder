@@ -1,5 +1,6 @@
 import os
 import time
+import random
 
 import instagrapi
 
@@ -21,11 +22,11 @@ def find_instagram_accounts(
         amount=number_of_posts
     )
     for post in posts:
-        time.sleep(3)
+        time.sleep(random.uniform(1.5, 3.5))
         comments = client.media_comments(media_id=post.pk, amount=post.comment_count)
         for comment in comments:
             received_account_link = f"https://www.instagram.com/{comment.user.username}/"
-            time.sleep(2)
+            time.sleep(random.uniform(1.5, 2.5))
             received_account_followers_count = (
                 client.user_info_by_username(username=comment.user.username).follower_count
             )

@@ -12,17 +12,14 @@ async def find_telegram_accounts(
     link: str,
     min_number_of_subscribers: int,
     number_of_comments: int,
-    api_id: str,
-    api_hash: str
+    telegram_session_string: str
 ) -> list[tuple[str, int]]:
     received_data: set[tuple[str, str]] = set()
     checked_user_ids = set()
 
     async with (pyrogram.Client(
         "channel_finder_tg_client",
-        api_id=api_id,
-        api_hash=api_hash,
-        session_string=f"BAE5jWcAuF3ipqWwI1RLZ2b5hqN2c4M6hgnhWYsKxo-V3tWIlWyRt_58mYBW9SsRKvYa-2US1tCxJofdYATWLOp7LSZlIvlkauzSVqDjF4kM7OUsy2KjFu_InAskkia6-2S8sGftYnMV0Q-LDQf2VsjcTgmtOxWNVXzYcFBq0ZXE9pQW1xvgVQZZH9JyZVAToDUnSBIIoBeZSxGIT-3akSfJlGZaVk5t4tHOIKWZnR87Y2Be9UjrXhn3vfk6ohWoy0tL9Zwzq-_D9TZtiNoUQ2-JgTYHuH9P_BsN10ygu9OAHRuxaLzjvfFPvr2i_PRw4UJazRdCmYuUgSRiJFlb_qDgHiY0dgAAAAHI0NjUAA"
+        session_string=telegram_session_string
     ) as client):
         channel_id = await get_channel_id_from_link(
             client=client, channel_link=link
@@ -58,17 +55,18 @@ async def find_telegram_accounts(
                             user_bio = full_user_object.full_user.about
 
                             if user_bio:
-                                retrieved_channel_link = await get_channel_link_from_bio(bio=user_bio)
+                                retrieved_channel_info = await get_channel_link_from_bio(bio=user_bio)
 
-                                if retrieved_channel_link:
+                                if retrieved_channel_info:
                                     retrieved_channel_id = await get_channel_id_from_link(
-                                        client=client, channel_link=retrieved_channel_link
+                                        client=client, channel_link=retrieved_channel_info
                                     )
                                     retrieved_channel = await client.get_chat(chat_id=retrieved_channel_id)
 
                                     if retrieved_channel.type == ChatType.CHANNEL:
                                         if retrieved_channel.id != channel_id:
                                             subscribers = retrieved_channel.members_count
+                                            retrieved_channel_link = f"https://t.me/{retrieved_channel.username}"
 
                                             if subscribers >= min_number_of_subscribers:
                                                 print(retrieved_channel_link, subscribers)
