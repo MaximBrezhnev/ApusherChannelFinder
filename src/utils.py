@@ -34,9 +34,10 @@ async def find_accounts(
                         username=instagram_credentials.split()[0],
                         password=instagram_credentials.split()[1],
                     )
-                except:
+                    all_received_data.extend(received_data)
+                except Exception as exc:
+                    print(f"Произошла ошибка при сборе данных для аккаунта {link}: {exc}")
                     continue
-            all_received_data.extend(received_data)
 
         elif "youtube.com" in link or "youtu.be" in link:
             try:
