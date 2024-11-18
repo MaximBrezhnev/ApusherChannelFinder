@@ -66,6 +66,7 @@ async def find_accounts(
         elif "t.me" in link or "telegram.me" in link:
             if telegram_session_string is not None:
                 try:
+                    print(console_message)
                     received_data: list[tuple[str, int]] = await find_telegram_accounts(
                         link=link,
                         min_number_of_subscribers=min_number_of_subscribers,

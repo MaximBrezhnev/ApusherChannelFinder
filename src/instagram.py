@@ -65,18 +65,42 @@ def find_instagram_accounts(
                                         received_data.add(
                                             (received_account_link, received_account_followers_count)
                                         )
-                        # Если при обработке отдельного комментария возникает ошибка, просто пропускаем его
+
+                        # Если при обработке отдельного комментария возникает ошибка связанная с блокировкой,
+                        # не пропускаем ее для смены аккаунта
+                        except (
+                            instagrapi.exceptions.LoginRequired,
+                            requests.exceptions.ConnectionError,
+                            requests.exceptions.RetryError,
+                            instagrapi.exceptions.UnknownError,
+                            instagrapi.exceptions.ChallengeError,
+                        ) as exc:
+                            raise exc
+                        # Если при обработке отдельного комментария возникает иная ошибка, просто пропускаем его
                         except:
                             continue
+
+                # Если при обработке отдельного поста возникает ошибка связанная с блокировкой,
+                # не пропускаем ее для смены аккаунта
+                except (
+                    instagrapi.exceptions.LoginRequired,
+                    requests.exceptions.ConnectionError,
+                    requests.exceptions.RetryError,
+                    instagrapi.exceptions.UnknownError,
+                    instagrapi.exceptions.ChallengeError
+                ) as exc:
+                    raise exc
                 # Если при обработке отдельного поста возникает ошибка, просто пропускаем его
                 except:
                     continue
+
         # Если возникает проблема, связанная с временной блокировкой аккаунта, производим его замену
         except (
             instagrapi.exceptions.LoginRequired,
             requests.exceptions.ConnectionError,
             requests.exceptions.RetryError,
             instagrapi.exceptions.UnknownError,
+            instagrapi.exceptions.ChallengeError,
         ):
             print(f"Ошибка 'Login required' для аккаунта {username}. Смена аккаунта...")
 
@@ -104,8 +128,7 @@ def _get_client(username: str, password: str, proxy: str | None) -> instagrapi.C
     if proxy is not None:
         client.set_proxy(proxy)
 
-    current_dir_path = os.path.dirname(os.path.abspath(__file__))
-    session_file_path = os.path.join(current_dir_path, "instagrapi_session.json")
+    session_file_path = os.path.join(os.getenv('TEMP'), f"instagrapi_session.json")
 
     # Если файл сессии существует, то создаем клиента с его помощью
     if os.path.exists(session_file_path):
@@ -129,8 +152,7 @@ def _extract_username_from_link(link: str) -> str:
 def _delete_session_file():
     """Удаляет файл сессии текущего пользователя."""
 
-    current_dir_path = os.path.dirname(os.path.abspath(__file__))
-    session_file_path = os.path.join(current_dir_path, f"instagrapi_session.json")
+    session_file_path = os.path.join(os.getenv('TEMP'), f"instagrapi_session.json")
 
     if os.path.exists(session_file_path):
         os.remove(session_file_path)
